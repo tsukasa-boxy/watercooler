@@ -1,6 +1,12 @@
-*.o
 *.lib
 *.a
+
 *.out
+*.o
+
+watercooler
+idobata
+
 *.html
 *.zip
+
