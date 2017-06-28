@@ -1,12 +1,17 @@
-#ifndef _SERVER_
-#define _SERVER_
+#ifndef __SERVER__
+#define __SERVER__
 
 #include "mynet.h"
-#include "wrapper.h"
+#include "defines.h"
 #include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
 
-void server_loop(int port);
+void server();
 
+int udp_recv_init(int port);
+void* udp_recv(void* tharg);
+
+void* tcp_server(void* tharg);
 
 #endif

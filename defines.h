@@ -1,10 +1,15 @@
-#ifndef _WRAPPER_
-#define _WRAPPER_
+#ifndef __DEFINES__
+#define __DEFINES__
 
 #include <unistd.h>
 #include <sys/socket.h>
-#include "mynet.h"
 
+#define TRUE 1
+#define FALSE 0
+
+#define NAME_LENGTH 15
+#define MAX_CLIENT_NUM 256
+#define BUFSIZE 512
 
 int Accept(int s, struct sockaddr *addr, socklen_t *addrlen);
 

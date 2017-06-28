@@ -4,53 +4,49 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <sys/select.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include "mynet.h"
-#include "wrapper.h"
+#include "defines.h"
 #include "server.h"
+#include "client.h"
 
-#define S_BUFSIZE 512   /* 送信用バッファサイズ */
-#define R_BUFSIZE 512   /* 受信用バッファサイズ */
+#define INVALID_ADDRESS htonl(0x00000000)
+#define LOCALHOST_ADDRESS htonl(0x7f000001);
 #define TIMEOUT_SEC 1
 #define HELO_COUNT 3
 
 #define DEFAULT_PORT 50001
 #define DEFAULT_NAME "Mr. Nobody"
-#define NAME_LENGTH 15
 
 extern char *optarg;
 extern int optind, opterr, optopt;
 
 in_addr_t helo(int port, char* name);
-void server_loop(int port);
 
 int main(int argc, char *argv[]){
 
-	int port = DEFAULT_PORT;
+	int port = htons(DEFAULT_PORT);
 	char name[NAME_LENGTH + 1] = DEFAULT_NAME;
 	int c;
 
-  struct sockaddr_in broadcast_adrs;
-  struct sockaddr_in from_adrs;
-  socklen_t from_len;
-  int sock;
-  int broadcast_sw=1;
-  char s_buf[S_BUFSIZE], r_buf[R_BUFSIZE];
-  int strsize;
-  fd_set mask, readfds;
-  struct timeval timeout;
+	struct sockaddr_in broadcast_adrs;
+	struct sockaddr_in from_adrs;
+	socklen_t from_len;
+	int sock;
+	int broadcast_sw=1;
 
 	opterr = 0;
-	while(1){
+	while(TRUE){
 		c = getopt(argc, argv, "p:n:");
 
 		if(c == -1) break;
 
 		switch(c){
 		case 'p':
-			port = atoi(optarg);
+			port = htons(atoi(optarg));
 			break;
 
 		case 'n':
@@ -66,61 +62,27 @@ int main(int argc, char *argv[]){
 	}
 
 	in_addr_t server_addr = helo(port, name);
+	struct sockaddr_in server_info;
+
+	server_info.sin_addr.s_addr = server_addr;
+	server_info.sin_port = port;
 	/* invalid server_addr means should be a server */
-	if(server_addr == 0x00000000){
-		server_loop(port);
+	if(server_addr == INVALID_ADDRESS){
+		printf("i am a server\n");
+		
+		server_info.sin_addr.s_addr = LOCALHOST_ADDRESS;
+		server(server_info); /* infinite loop */
 	}
 	else{
-		printf("server found\n");
+		printf("i am a client\n");
+		client(server_info); /* infinite loop */
 	}
 
-
-	/* client */
-	printf("client\n");
-  for(;;){
-
-    /* check if this client reveived data */
-    readfds = mask;
-    select(sock + 1, &readfds, NULL, NULL, NULL);
-
-    /* keyboard input */
-    if( FD_ISSET(0, &readfds) ){
-      fgets(s_buf, S_BUFSIZE - 1, stdin);
-      /* remove '\n' and add '\0' */
-      strsize = strlen(s_buf);
-      if(s_buf[strsize - 1] == '\n'){
-        s_buf[strsize - 1] = '\0';
-      }
-      else{
-        s_buf[strsize] = '\0';
-      }
-
-      Send(sock, s_buf, strsize, 0);
-    }
-
-    /* receive data from server */
-    if( FD_ISSET(sock, &readfds) ){
-
-      strsize = Recv(sock, r_buf, R_BUFSIZE-1, 0);
-
-      /* check error */
-      if(strsize == 0){
-        printf("server down\n");
-        exit(-1);
-      }
-      else if(strsize == -1){
-        printf("error happened\n");
-        exit(-1);
-      }
-
-      r_buf[strsize] = '\0';
-      printf("%s\n", r_buf);
-    }
-
-  }
-
+	/* never reached here */
 	exit(EXIT_SUCCESS);
+
 }
+
 
 in_addr_t helo(int port, char* name){
 
@@ -133,7 +95,7 @@ in_addr_t helo(int port, char* name){
 	fd_set mask, readfds;
 	struct timeval timeout;
 
-	char s_buf[S_BUFSIZE], r_buf[R_BUFSIZE];
+	char s_buf[BUFSIZE], r_buf[BUFSIZE];
 	int strsize;
 	/* ブロードキャストアドレスの情報をsockaddr_in構造体に格納する */
 	set_sockaddr_in(&broadcast_adrs, "localhost", (in_port_t)port);
@@ -142,7 +104,8 @@ in_addr_t helo(int port, char* name){
 	sock = init_udpclient();
 
 	/* ソケットをブロードキャスト可能にする */
-	if(setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *)&broadcast_sw, sizeof(broadcast_sw)) == -1){
+	if(setsockopt(sock, SOL_SOCKET, SO_BROADCAST,
+		(void *)&broadcast_sw, sizeof(broadcast_sw)) == -1){
 		exit_errmesg("setsockopt()");
 	}
 
@@ -155,7 +118,7 @@ in_addr_t helo(int port, char* name){
 
 		/* 文字列をサーバに送信する */
 		Sendto(sock, "HELO", strlen("HELO"), 0, 
-		 (struct sockaddr *)&broadcast_adrs, sizeof(broadcast_adrs) );
+				(struct sockaddr *)&broadcast_adrs, sizeof(broadcast_adrs) );
 
 		/* サーバから文字列を受信して表示 */
 		for(;;){
@@ -171,8 +134,9 @@ in_addr_t helo(int port, char* name){
 			}
 
 			from_len = sizeof(from_adrs);
-			strsize = Recvfrom(sock, r_buf, R_BUFSIZE - 1, 0,
+			strsize = Recvfrom(sock, r_buf, BUFSIZE - 1, 0,
 								(struct sockaddr *)&from_adrs, &from_len);
+
 			r_buf[strsize] = '\0';
 			printf("[%s] %s\n",inet_ntoa(from_adrs.sin_addr), r_buf);
 
@@ -191,6 +155,5 @@ in_addr_t helo(int port, char* name){
 
 	close(sock);	/* ソケットを閉じる */
 
-	return 0x00000000;
+	return INVALID_ADDRESS;
 }
-

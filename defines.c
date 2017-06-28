@@ -1,4 +1,5 @@
-#include "wrapper.h"
+#include "defines.h"
+#include "mynet.h"
 
 int Accept(int s, struct sockaddr *addr, socklen_t *addrlen)
 {
