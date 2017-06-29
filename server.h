@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
-void server();
+void server_main();
 
 int udp_recv_init(int port);
 void* udp_recv(void* tharg);

@@ -14,7 +14,7 @@
 #include "client.h"
 
 #define INVALID_ADDRESS htonl(0x00000000)
-#define LOCALHOST_ADDRESS htonl(0x7f000001);
+#define LOCALHOST_ADDRESS htonl(0x7f000001)
 #define TIMEOUT_SEC 1
 #define HELO_COUNT 3
 
@@ -66,16 +66,18 @@ int main(int argc, char *argv[]){
 
 	server_info.sin_addr.s_addr = server_addr;
 	server_info.sin_port = port;
+	
 	/* invalid server_addr means should be a server */
 	if(server_addr == INVALID_ADDRESS){
 		printf("i am a server\n");
 		
 		server_info.sin_addr.s_addr = LOCALHOST_ADDRESS;
-		server(server_info); /* infinite loop */
+		server_main(server_info); /* infinite loop */
 	}
+	/* valid server_addr means should be a client */
 	else{
 		printf("i am a client\n");
-		client(server_info); /* infinite loop */
+		client_main(server_info); /* infinite loop */
 	}
 
 	/* never reached here */
@@ -157,3 +159,4 @@ in_addr_t helo(int port, char* name){
 
 	return INVALID_ADDRESS;
 }
+

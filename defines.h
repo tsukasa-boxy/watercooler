@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <sys/socket.h>
 
+#define max(a, b) (a) > (b) ? (a) : (b)
+
 #define TRUE 1
 #define FALSE 0
 

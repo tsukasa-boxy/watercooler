@@ -7,7 +7,7 @@
 #include "defines.h"
 #include "server.h"
 
-void client(struct sockaddr_in server_info){
+void client_main(struct sockaddr_in server_info){
 	int sock, *sock_tharg;
 	if( (sock_tharg = (int *)malloc(sizeof(int)))==NULL ){
 		exit_errmesg("malloc()");
@@ -19,8 +19,7 @@ void client(struct sockaddr_in server_info){
 }
 
 void tcp_client_join(int sock){
-	char name[NAME_LENGTH + 1];
-	printf("%d\n", sock);
+	char name[NAME_LENGTH + 5] = "JOIN tsukasa";
 	Send(sock, name, strlen(name), 0);
 }
 
@@ -39,9 +38,7 @@ void* tcp_client(void* tharg){
 	FD_SET(0, &mask);
 	FD_SET(sock, &mask);
 
-	printf("%d\n", sock);
-
-	for(;;){
+	while(TRUE){
 
 		/* check if this client reveived data */
 		readfds = mask;
