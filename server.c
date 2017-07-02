@@ -202,6 +202,7 @@ void* tcp_server(void* tharg){
 
 				client_info* client_itr;
 				CLIENT_FOREACH(client_itr, &client_info_head){
+					if(client_itr->sock == client_info_itr->sock) continue;
 					Send(client_itr->sock, send_buf, strlen(send_buf), 0);
 				}
 

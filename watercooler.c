@@ -20,7 +20,8 @@
 #define TIMEOUT_SEC 1
 #define HELO_COUNT 3
 
-#define DEFAULT_PORT htons(50001)
+/* #define DEFAULT_PORT htons(50001) can not comminucate with idobata3  why? */
+#define DEFAULT_PORT 50001 
 #define DEFAULT_NAME "Mr. Nobody"
 
 extern char *optarg;
@@ -30,7 +31,7 @@ in_addr_t helo(int port, char* name);
 
 int main(int argc, char *argv[]){
 
-	int port = htons(DEFAULT_PORT);
+	uint32_t port = DEFAULT_PORT;
 	char name[NAME_LENGTH + 1] = DEFAULT_NAME;
 	int c;
 
@@ -48,7 +49,7 @@ int main(int argc, char *argv[]){
 
 		switch(c){
 		case 'p':
-			port = htons(atoi(optarg));
+			port = atoi(optarg);
 			break;
 
 		case 'n':
