@@ -3,11 +3,13 @@
 
 #include "defines.h"
 
-#define CLIENT_FOREACH(itr, head) for(itr = (head)->next; itr != (head); itr = itr->next)
+#define CLIENT_FOREACH(itr, head) \
+		for((itr) = (head)->next; (itr) != (head); (itr) = (itr)->next)
 
+/* doubly-circularly-linked list (head is dummy) */
 typedef struct client_info_{
-	int  sock;
-	char name[NAME_LENGTH];
+	int sock;
+	char name[NAME_LENGTH + 1];
 	struct client_info_* prev;
 	struct client_info_* next;
 } client_info;
@@ -19,6 +21,5 @@ char* get_client_name(client_info* head, int sock);
 void add_client(client_info* head, int sock, char* name);
 
 void delete_client(client_info* head, int sock);
-
 
 #endif

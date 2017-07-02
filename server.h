@@ -1,7 +1,6 @@
 #ifndef __SERVER__
 #define __SERVER__
 
-#include "mynet.h"
 #include "defines.h"
 #include <stdlib.h>
 #include <unistd.h>

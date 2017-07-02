@@ -2,14 +2,16 @@
  * watercooler.c
  */
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/select.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
-#include "mynet.h"
 #include "defines.h"
+#include "mynet.h"
 #include "server.h"
 #include "client.h"
 
@@ -18,7 +20,7 @@
 #define TIMEOUT_SEC 1
 #define HELO_COUNT 3
 
-#define DEFAULT_PORT 50001
+#define DEFAULT_PORT htons(50001)
 #define DEFAULT_NAME "Mr. Nobody"
 
 extern char *optarg;
@@ -97,8 +99,6 @@ in_addr_t helo(int port, char* name){
 	fd_set mask, readfds;
 	struct timeval timeout;
 
-	char s_buf[BUFSIZE], r_buf[BUFSIZE];
-	int strsize;
 	/* ブロードキャストアドレスの情報をsockaddr_in構造体に格納する */
 	set_sockaddr_in(&broadcast_adrs, "localhost", (in_port_t)port);
 
@@ -123,7 +123,10 @@ in_addr_t helo(int port, char* name){
 				(struct sockaddr *)&broadcast_adrs, sizeof(broadcast_adrs) );
 
 		/* サーバから文字列を受信して表示 */
-		for(;;){
+		while(TRUE){
+
+			char buf[WATCHWORD_LENGTH + 1];
+			int strsize;
 
 			/* 受信データの有無をチェック */
 			readfds = mask;
@@ -136,19 +139,15 @@ in_addr_t helo(int port, char* name){
 			}
 
 			from_len = sizeof(from_adrs);
-			strsize = Recvfrom(sock, r_buf, BUFSIZE - 1, 0,
+			strsize = Recvfrom(sock, buf, WATCHWORD_LENGTH, 0,
 								(struct sockaddr *)&from_adrs, &from_len);
 
-			r_buf[strsize] = '\0';
-			printf("[%s] %s\n",inet_ntoa(from_adrs.sin_addr), r_buf);
+			buf[strsize] = '\0';
+			printf("[%s] %s\n",inet_ntoa(from_adrs.sin_addr), buf);
 
-			if(strcmp(r_buf, "HERE") == 0){
+			if(strcmp(buf, "HERE") == 0){
 				close(sock);
 				return from_adrs.sin_addr.s_addr;
-			}
-			else{
-				close(sock);
-				return from_adrs.sin_addr.s_addr;	
 			}
 		}
 	}

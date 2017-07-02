@@ -4,6 +4,8 @@
 #include "server.h"
 #include "client.h"
 #include "client_info.h"
+#include "mynet.h"
+#include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
 
@@ -50,8 +52,6 @@ void server_main(struct sockaddr_in server_info){
 	/* 5. tcp client init */
 	sock_tcp_client = init_tcpclient(inet_ntoa(server_info.sin_addr), server_info.sin_port);
 
-	tcp_client_join(sock_tcp_client);
-
 	/* 6. tcp client begin thread */
 	if( (sock_tcp_client_tharg = (int *)malloc(sizeof(int)))==NULL ){
 		exit_errmesg("malloc()");
@@ -70,20 +70,20 @@ int udp_recv_init(int port){
 	struct sockaddr_in my_adrs;
 	int sock;
 
-	/* サーバ(自分自身)の情報をsockaddr_in構造体に格納する */
+	/* set my address */
 	memset(&my_adrs, 0, sizeof(my_adrs));
 	my_adrs.sin_family = AF_INET;
 	my_adrs.sin_port = htons(port);
 	my_adrs.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	/* ソケットをDGRAMモードで作成する */
+	/* create sock for udp */
 	if((sock = socket(PF_INET, SOCK_DGRAM, 0)) == -1){
-	exit_errmesg("socket()");
+		exit_errmesg("socket()");
 	}
 
-	/* ソケットに自分自身のアドレス情報を結びつける */
+	/* bind socket with my address */
 	if(bind(sock, (struct sockaddr *)&my_adrs, sizeof(my_adrs)) == -1 ){
-	exit_errmesg("bind()");
+		exit_errmesg("bind()");
 	}
 
 	return sock;
@@ -92,7 +92,7 @@ int udp_recv_init(int port){
 void * udp_recv(void* tharg){
 	struct sockaddr_in from_adrs;
 	int from_len;
-	char r_buf[BUFSIZE];
+	char buf[PACKET_LENGTH_HERE];
 	int strsize;
 	int sock;
 
@@ -100,35 +100,34 @@ void * udp_recv(void* tharg){
 	free(tharg);
 	pthread_detach(pthread_self());
 
-	while(1){
+	while(TRUE){
 		/* 文字列をクライアントから受信する */
 		from_len = sizeof(from_adrs);
-		strsize = Recvfrom(sock, r_buf, BUFSIZE, 0,
+		strsize = Recvfrom(sock, buf, PACKET_LENGTH_HERE, 0,
 			 (struct sockaddr *)&from_adrs, &from_len);
 
-		if(strcmp(r_buf, "HELO") == 0){
+		if(strcmp(buf, "HELO") == 0){
 			/* TODO */
 		}
 
 		/* 文字列をクライアントに送信する */
-		Sendto(sock, r_buf, strsize, 0,
+		Sendto(sock, WATCHWORD_HERE, WATCHWORD_LENGTH, 0,
 				(struct sockaddr *)&from_adrs, sizeof(from_adrs));
 	}
 }
 
 void* tcp_server(void* tharg){
 
-	client_info client_info_head;  /* data of cliants */
+	client_info client_info_head;	/* data of cliants (head is dummy) */
 	client_info* client_info_itr;
-	int max_sd;               /* max value of descriptor */
-	char buf[BUFSIZE];     /* buffer for communication */
+	int max_sd;	/* max value of descriptor */
 
+	/* init  */
 	client_info_head.prev = &client_info_head;
 	client_info_head.next = &client_info_head;
 
 	fd_set mask, readfds;
 	int client_id;
-	int strsize;
 	int sock_listen;
 	
 	sock_listen = *((int *)tharg);
@@ -147,18 +146,20 @@ void* tcp_server(void* tharg){
 		select(max_sd + 1, &readfds, NULL, NULL, NULL);
 
 		if(FD_ISSET(sock_listen, &readfds)){
+
+			char buf[PACKET_LENGTH_JOIN + 1] = {'\0'};
+			int strsize;
 			
 			int sock_accepted = Accept(sock_listen, NULL, NULL);
-			strsize = Recv(sock_accepted, buf, BUFSIZE - 1, 0);
+			strsize = Recv(sock_accepted, buf, PACKET_LENGTH_JOIN, 0);
 
 			/* "JOIN username" */
-			if(strsize >= 6 && strncmp(buf, "JOIN", 4) == 0){
+			if(strncmp(buf, WATCHWORD_JOIN, WATCHWORD_LENGTH) == 0){
 				printf("joined %s\n", buf + 5);
 				add_client(&client_info_head, sock_accepted, buf + 5);
 				FD_SET(sock_accepted, &mask);
 				max_sd = max(max_sd, sock_accepted);
 			}
-
 			show_all_clients(&client_info_head);
 
 		}
@@ -166,40 +167,48 @@ void* tcp_server(void* tharg){
 
 		CLIENT_FOREACH(client_info_itr, &client_info_head){
 
+
+			char buf[PACKET_LENGTH_POST + 1] = {'\0'};
+			int strsize;
+
 			if(FD_ISSET(client_info_itr->sock, &readfds) == 0){
 				continue;
 			}
 
 			/* there are data */
 
-			strsize = Recv(client_info_itr->sock, buf, BUFSIZE - 1, 0);
+			strsize = Recv(client_info_itr->sock, buf, PACKET_LENGTH_POST, 0);
 
 			/* client logged out */
-			if(strsize <= 0){
-
-				/* remove mask */
-				FD_CLR(client_info_itr->sock, &mask);
-
-				/* close sock */
-				close(client_info_itr->sock);
-				client_info_itr->sock = -1;
+			if(strsize <= 0 || strncmp(buf, WATCHWORD_QUIT, WATCHWORD_LENGTH) == 0){
 
 				printf("%s logged out\n", client_info_itr->name);
 
+				FD_CLR(client_info_itr->sock, &mask);
+				close(client_info_itr->sock);
+				delete_client(&client_info_head, client_info_itr->sock);
+
+				continue;
+
 			}
 
-			buf[strsize] = '\0';
+			else if(strncmp(buf, WATCHWORD_POST, WATCHWORD_LENGTH) == 0){
+				/* broadcast */
 
-			/* broadcast */
-			client_info* client_itr;
-			CLIENT_FOREACH(client_itr, &client_info_head){
-				//if(client_itr->sock == -1) continue;
-				char send_buf[BUFSIZE + 10];
-				sprintf(send_buf, "[%s]%s", client_itr->name, buf);
-				Send(client_itr->sock, send_buf, strlen(send_buf), 0);
+				char send_buf[PACKET_LENGTH_MESG + 1] = {'\0'};
+				
+				snprintf(send_buf, PACKET_LENGTH_MESG, "%s [%s]%s",
+						WATCHWORD_MESG, client_info_itr->name, buf + 5);
+
+				client_info* client_itr;
+				CLIENT_FOREACH(client_itr, &client_info_head){
+					Send(client_itr->sock, send_buf, strlen(send_buf), 0);
+				}
+
 			}
 		
 		}
+
 	}
 
 }

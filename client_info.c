@@ -1,5 +1,6 @@
 #include "client_info.h"
 #include "mynet.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -42,7 +43,7 @@ void add_client(client_info* head, int sock, char* name){
 	}
 
 	new_client->sock = sock;
-	strcpy(new_client->name, name);
+	strncpy(new_client->name, name, NAME_LENGTH);
 	new_client->next = head;
 
 	tail->next = new_client;
@@ -57,37 +58,17 @@ void delete_client(client_info* head, int sock){
 
 	CLIENT_FOREACH(itr, head){
 
-		if(itr->sock != sock) continue;
-
-		//削除要素の前のリストにつなげる
-		//その前に次の要素が末尾ならつなげる必要ないのでチェック
-		if(itr->next != head){
-
-			//削除直前の要素につなげる
+		if(itr->sock == sock){
 			prev->next = itr->next;
-			//削除した次の要素のprevに、削除直前の要素のポインタをセット
 			itr->next->prev = prev;
-
-			//削除対象要素の解放
 			free(itr);
 
 			return;
 		}
-		else{
-			//末尾要素に先頭要素のポインタを保存
-			prev->next = head;
-			//先頭要素のprevに末尾要素のポインタを第ニュ
-			head->prev = prev;
 
-			//削除対象要素の解放
-			free(itr);
-
-			return;	
-		}
+		prev = itr;
 
 	}
-
-	prev = itr;
 
 	
 }
