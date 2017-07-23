@@ -101,18 +101,20 @@ void * udp_recv(void* tharg){
 	pthread_detach(pthread_self());
 
 	while(TRUE){
-		/* 文字列をクライアントから受信する */
+		/* receive */
 		from_len = sizeof(from_adrs);
 		strsize = Recvfrom(sock, buf, PACKET_LENGTH_HERE, 0,
 			 (struct sockaddr *)&from_adrs, &from_len);
 
-		if(strcmp(buf, "HELO") == 0){
-			/* TODO */
+		if(strcmp(buf, WATCHWORD_HELO) == 0){		
+			/* send HERE */
+			Sendto(sock, WATCHWORD_HERE, WATCHWORD_LENGTH, 0,
+					(struct sockaddr *)&from_adrs, sizeof(from_adrs));
+		}
+		else{
+			printf("udp receive \"%s\"\n", buf);
 		}
 
-		/* 文字列をクライアントに送信する */
-		Sendto(sock, WATCHWORD_HERE, WATCHWORD_LENGTH, 0,
-				(struct sockaddr *)&from_adrs, sizeof(from_adrs));
 	}
 }
 
@@ -160,10 +162,19 @@ void* tcp_server(void* tharg){
 				FD_SET(sock_accepted, &mask);
 				max_sd = max(max_sd, sock_accepted);
 			}
+
+			/* broadcast "[server]usename joined" */
+			/*
+			char send_buf[PACKET_LENGTH_MESG + 1] = {'\0'};
+			sprintf(send_buf, "[server]%s joined", buf + 5);
+			client_info* client_itr;
+			CLIENT_FOREACH(client_itr, &client_info_head){
+				Send(client_itr->sock, send_buf, strlen(send_buf), 0);
+			}
 			show_all_clients(&client_info_head);
+			*/
 
 		}
-
 
 		CLIENT_FOREACH(client_info_itr, &client_info_head){
 
@@ -182,11 +193,27 @@ void* tcp_server(void* tharg){
 			/* client logged out */
 			if(strsize <= 0 || strncmp(buf, WATCHWORD_QUIT, WATCHWORD_LENGTH) == 0){
 
+				char name_buf[NAME_LENGTH + 1] = {'\0'};
+
 				printf("%s logged out\n", client_info_itr->name);
+
+				strcpy(name_buf, client_info_itr->name);
 
 				FD_CLR(client_info_itr->sock, &mask);
 				close(client_info_itr->sock);
 				delete_client(&client_info_head, client_info_itr->sock);
+
+				/* broadcast "[server]usename logged out" */
+				/*
+				char send_buf[PACKET_LENGTH_MESG + 1] = {'\0'};
+				sprintf(send_buf, "[server]%s logged out", name_buf);
+				client_info* client_itr;
+				CLIENT_FOREACH(client_itr, &client_info_head){
+					Send(client_itr->sock, send_buf, strlen(send_buf), 0);
+				}
+				*/
+
+				show_all_clients(&client_info_head);
 
 				continue;
 

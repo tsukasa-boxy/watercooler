@@ -27,7 +27,7 @@
 extern char *optarg;
 extern int optind, opterr, optopt;
 
-in_addr_t helo(int port, char* name);
+in_addr_t helo(uint32_t port, char* name);
 
 int main(int argc, char *argv[]){
 
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]){
 
 	opterr = 0;
 	while(TRUE){
-		c = getopt(argc, argv, "p:n:");
+		c = getopt(argc, argv, "p:");
 
 		if(c == -1) break;
 
@@ -52,12 +52,8 @@ int main(int argc, char *argv[]){
 			port = atoi(optarg);
 			break;
 
-		case 'n':
-			snprintf(name, NAME_LENGTH, "%s", optarg);
-			break;
-
 		case '?':
-			fprintf(stderr, "Usage(Server): %s [-p port_number] -n log_in_name\n", argv[0]);
+			fprintf(stderr, "Usage(Server): %s [-p port_number]\n", argv[0]);
 			exit(EXIT_FAILURE);
 			break;
 		}
@@ -89,7 +85,7 @@ int main(int argc, char *argv[]){
 }
 
 
-in_addr_t helo(int port, char* name){
+in_addr_t helo(uint32_t port, char* name){
 
 	struct sockaddr_in broadcast_adrs;
 	struct sockaddr_in from_adrs;
@@ -101,7 +97,9 @@ in_addr_t helo(int port, char* name){
 	struct timeval timeout;
 
 	/* ブロードキャストアドレスの情報をsockaddr_in構造体に格納する */
-	set_sockaddr_in(&broadcast_adrs, "localhost", (in_port_t)port);
+	broadcast_adrs.sin_family = AF_INET;
+	broadcast_adrs.sin_port = htons((in_port_t)port);
+	broadcast_adrs.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 
 	/* ソケットをDGRAMモードで作成する */
 	sock = init_udpclient();
@@ -120,7 +118,7 @@ in_addr_t helo(int port, char* name){
 	for(i = 0; i < HELO_COUNT; i++){
 
 		/* 文字列をサーバに送信する */
-		Sendto(sock, "HELO", strlen("HELO"), 0, 
+		Sendto(sock, WATCHWORD_HELO, WATCHWORD_LENGTH, 0, 
 				(struct sockaddr *)&broadcast_adrs, sizeof(broadcast_adrs) );
 
 		/* サーバから文字列を受信して表示 */
@@ -146,7 +144,7 @@ in_addr_t helo(int port, char* name){
 			buf[strsize] = '\0';
 			printf("[%s] %s\n",inet_ntoa(from_adrs.sin_addr), buf);
 
-			if(strcmp(buf, "HERE") == 0){
+			if(strcmp(buf, WATCHWORD_HERE) == 0){
 				close(sock);
 				return from_adrs.sin_addr.s_addr;
 			}

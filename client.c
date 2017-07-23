@@ -34,7 +34,7 @@ void* tcp_client(void* tharg){
 		char packet[PACKET_LENGTH_JOIN + 1] = {'\0'};
 		int strsize;
 
-		printf("your name ...");
+		printf("your name is...");
 		fgets(name, NAME_LENGTH, stdin);
 
 		strsize = strlen(name);
